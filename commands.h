@@ -26,6 +26,8 @@ void exit_prog(std::vector<std::string> args);
 void clear(std::vector<std::string> args);
 void exec(std::string filename, std::vector<std::string> args);
 
+void resetTermios();
+
 const bool VERBOSE = false;
 
 static char hostname[1024];

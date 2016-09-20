@@ -63,6 +63,7 @@ void pwd(vector<string> args)
 
 void exit_prog(vector<string> args)
 {
+    resetTermios();
     exit(0);
 }
 
