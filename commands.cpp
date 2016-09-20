@@ -111,5 +111,7 @@ void exec(string filename, vector<string> args)
     for(string s: args)
         cmd += " " + s;
 
+    resetTermios();
     system(cmd.c_str());
+    initTermios();
 }

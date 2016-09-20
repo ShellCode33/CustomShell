@@ -1,5 +1,3 @@
-#include <signal.h>
-#include <termios.h>
 #include "commands.h"
 
 using namespace std;
@@ -22,7 +20,7 @@ vector<string> split(string str){
 
 void print(const char *str)
 {
-    write(STDOUT_FILENO, str, strlen(str)); //async safe
+    write(STDOUT_FILENO, str, strlen(str)); //Obligé d'utiliser write car elle est async-safe
 }
 
 //TERMINAL IN ROW MODE
@@ -52,8 +50,13 @@ void resetTermios()
 //effacer = 127
 //suppr = 126
 
+list<string> commands_history;
+list<string>::reverse_iterator it_commands_history;
+bool arrow_up = false, arrow_down = false;
+
 int key_code_history[2] = {0, 0}; //variable globale car modifiée par le handleCtrlC()
 string line = ""; //idem
+
 string processUserInput()
 {
     line = "";
@@ -77,12 +80,70 @@ string processUserInput()
             switch((int)c)
             {
                 case 65: //flèche haut
+                {
+                    if(it_commands_history != commands_history.rend())
+                    {
+                        string clean_line = "";
+
+                        for(int i = 0; i < (int)line.size()+shiftIndex; i++)
+                            clean_line += "\b";
+
+                        for(int i = 0; i < (int)line.size(); i++)
+                            clean_line += " ";
+
+                        for(int i = 0; i < (int)line.size(); i++)
+                            clean_line += "\b";
+
+                        print(clean_line.c_str());
+                        line = "";
+                        shiftIndex = 0;
+
+                        if(arrow_down)
+                            ++it_commands_history;
+
+                        line = *it_commands_history;
+                        print(line.c_str());
+                        ++it_commands_history;
+                        arrow_up = true;
+                        arrow_down = false;
+                    }
 
                     break;
+                }
 
                 case 66: //flèche bas
+                {
+                    if(*it_commands_history != commands_history.back())
+                    {
+                        string clean_line = "";
+
+                        for(int i = 0; i < (int)line.size()+shiftIndex; i++)
+                            clean_line += "\b";
+
+                        for(int i = 0; i < (int)line.size(); i++)
+                            clean_line += " ";
+
+                        for(int i = 0; i < (int)line.size(); i++)
+                            clean_line += "\b";
+
+                        print(clean_line.c_str());
+                        line = "";
+                        shiftIndex = 0;
+
+                        --it_commands_history;
+
+                        if(it_commands_history != commands_history.rbegin() && arrow_up)
+                            --it_commands_history;
+
+                        line = *it_commands_history;
+                        print(line.c_str());
+
+                        arrow_up = false;
+                        arrow_down = true;
+                    }
 
                     break;
+                }
 
                 case 67: //flèche droite
                 {
@@ -174,10 +235,12 @@ string processUserInput()
     return line;
 }
 
+char hostname[1024]; //Global car utlisé dans le main ET dans le handleCtrlC()
+
 void handleCtrlC(int signal)
 {
     string str = string("^C\n\033[94m") + getenv("USER") +  "@" + hostname + " \033[92m" + workingDirectory + " : \033[0m";
-    write(STDOUT_FILENO, str.c_str(), str.size()); //Obligé d'utiliser write car les autres fonctions ne sont pas async-safe
+    print(str.c_str());
     key_code_history[0] = key_code_history[1] = 0;
     line = "";
 }
@@ -190,6 +253,8 @@ int main(int argc, char **argv)
     string command, line;
     gethostname(hostname, 1023);
     hostname[1023] = '\0';
+
+    it_commands_history = commands_history.rend();
 
     while(true)
     {
@@ -206,7 +271,14 @@ int main(int argc, char **argv)
             std::map<std::string, func_ptr>::iterator it = commands.find(command);
 
             if(it != commands.end())
+            {
+                if(line != commands_history.back())
+                    commands_history.push_back(line);
+
+                it_commands_history = commands_history.rbegin();
+                arrow_up = arrow_down = false;
                 it->second(commandLine);
+            }
 
             else
             {
@@ -235,6 +307,14 @@ int main(int argc, char **argv)
 
                 if(!executed)
                     cout << "Commande \"" << command << "\" introuvable." << endl;
+                else
+                {
+                    if(line != *commands_history.rbegin())
+                        commands_history.push_back(line);
+
+                    it_commands_history = commands_history.rbegin();
+                    arrow_up = arrow_down = false;
+                }
             }
 
             commandLine.clear();

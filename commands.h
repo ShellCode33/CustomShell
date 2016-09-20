@@ -12,6 +12,9 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <signal.h>
+#include <termios.h>
+#include <list>
 
 typedef void(*func_ptr)(std::vector<std::string>); //pointeur de fonction
 
@@ -29,8 +32,6 @@ void exec(std::string filename, std::vector<std::string> args);
 void initTermios();
 void resetTermios();
 
-static char hostname[1024];
-
 static std::string path[] = {
 	"/usr/local/sbin",
 	"/usr/local/bin",
@@ -40,7 +41,7 @@ static std::string path[] = {
 	"/bin"
 };
 
-extern char* workingDirectory; //Variable déclarée dans commands.h
+extern char* workingDirectory; //Variable déclarée dans commands.cpp
 
 static std::map<std::string, func_ptr> commands {
     {"help", help},
