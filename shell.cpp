@@ -14,12 +14,7 @@ vector<string> split(string str){
         stream >> word;
 
         if(word != "\0") //fix bug, en effet un mot vide était ajouté à la fin du vecteur de strings
-        {
-            if(VERBOSE)
-                cout << "word: " << word << endl;
-
             words.push_back(word);
-        }
     }
 
     return words;
@@ -33,12 +28,12 @@ void print(const char *str)
 //TERMINAL IN ROW MODE
 /* Initialize new terminal i/o settings */
 static struct termios old, new1;
-void initTermios(int echo)
+void initTermios()
 {
     tcgetattr(0, &old); /* grab old terminal i/o settings */
     new1 = old; /* make new settings same as old settings */
     new1.c_lflag &= ~ICANON; /* disable buffered i/o */
-    new1.c_lflag &= echo ? ECHO : ~ECHO; /* set echo mode */
+    new1.c_lflag &= ~ECHO; /* set echo mode */
     tcsetattr(0, TCSANOW, &new1); /* use these new terminal i/o settings now */
 }
 
@@ -57,10 +52,11 @@ void resetTermios()
 //effacer = 127
 //suppr = 126
 
-int history[2] = {0, 0}; //varibale globale car modifié par le handleCtrlC()
+int key_code_history[2] = {0, 0}; //variable globale car modifiée par le handleCtrlC()
 string line = ""; //idem
 string processUserInput()
 {
+    line = "";
     int shiftIndex = 0; //0 = curseur en fin de ligne
 
     char c = '\0';
@@ -72,11 +68,11 @@ string processUserInput()
         //write(STDOUT_FILENO, test.c_str(), test.size());
 
         if((int)c == 27)
-            history[0] = 27;
-        else if((int)c == 91 && history[0] == 27)
-            history[1] = 91;
+            key_code_history[0] = 27;
+        else if((int)c == 91 && key_code_history[0] == 27)
+            key_code_history[1] = 91;
 
-        else if(history[0] == 27 && history[1] == 91)
+        else if(key_code_history[0] == 27 && key_code_history[1] == 91)
         {
             switch((int)c)
             {
@@ -89,15 +85,32 @@ string processUserInput()
                     break;
 
                 case 67: //flèche droite
+                {
+                    if(shiftIndex < 0)
+                    {
+                        string sub = line.substr(line.size()+shiftIndex, -shiftIndex);
+                        shiftIndex++;
 
+                        for(int i = 0; i < -shiftIndex; i++)
+                            sub += "\b";
+
+                        write(STDOUT_FILENO, sub.c_str(), sub.size());
+                    }
                     break;
+                }
 
                 case 68: //flèche gauche
-                    write(STDOUT_FILENO, "\b", 1);
+
+                    if(shiftIndex > -(int)line.size()) //attention line.size() est unsigned !!!
+                    {
+                        shiftIndex--;
+                        write(STDOUT_FILENO, "\b", 1);
+                    }
+
                     break;
             }
 
-            history[0] = history[1] = 0;
+            key_code_history[0] = key_code_history[1] = 0;
         }
 
         else if(c == 9) //TAB = AUTOCOMPLETION
@@ -116,14 +129,43 @@ string processUserInput()
 
         else if(c == 126) //SUPPR
         {
+            if(shiftIndex < 0)
+            {
+                string sub = line.substr(line.size()+shiftIndex+1, -shiftIndex-1);
+                line.erase(line.size()+shiftIndex, 1);
 
+                for(int i = 0; i < -shiftIndex; i++)
+                    sub += " "; //efface les caractères en trop dans la console
+
+                for(int i = 0; i < -shiftIndex*2-1; i++)
+                    sub += "\b";
+
+                print(sub.c_str());
+
+                shiftIndex++;
+            }
         }
 
         else if((c >= 32 && c <= 125) ) //si c'est un caractère "normal"
         {
-            write(STDOUT_FILENO, &c, 1);
-            line += c;
-            history[0] = history[1] = 0;
+            if(shiftIndex < 0)
+            {
+                line.insert(line.size()+shiftIndex, 1, c);
+                string sub = line.substr(line.size()+shiftIndex-1, -shiftIndex+1);
+
+                for(int i = 0; i < -shiftIndex; i++)
+                    sub += "\b";
+
+                print(sub.c_str());
+            }
+
+            else
+            {
+                line += c;
+                write(STDOUT_FILENO, &c, 1);
+            }
+
+            key_code_history[0] = key_code_history[1] = 0;
         }
 
     }
@@ -136,14 +178,14 @@ void handleCtrlC(int signal)
 {
     string str = string("^C\n\033[94m") + getenv("USER") +  "@" + hostname + " \033[92m" + workingDirectory + " : \033[0m";
     write(STDOUT_FILENO, str.c_str(), str.size()); //Obligé d'utiliser write car les autres fonctions ne sont pas async-safe
-    history[0] = history[1] = 0;
+    key_code_history[0] = key_code_history[1] = 0;
     line = "";
 }
 
 int main(int argc, char **argv)
 {
     signal(SIGINT, handleCtrlC);
-    initTermios(0);
+    initTermios();
 
     string command, line;
     gethostname(hostname, 1023);

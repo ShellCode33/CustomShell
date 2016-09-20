@@ -69,7 +69,9 @@ void exit_prog(vector<string> args)
 
 void shell(vector<string> args)
 {
+    resetTermios();
     system(getenv("SHELL"));
+    initTermios();
 }
 
 void ls(vector<string> args)
@@ -99,8 +101,7 @@ void ls(vector<string> args)
 
 void clear(vector<string> args)
 {
-    cout << "\033[2J";
-    cout << "\033[1;1H";
+    write(STDOUT_FILENO, "\033[2J\033[1;1H", sizeof("\033[2J\033[1;1H")); //async safe
 }
 
 void exec(string filename, vector<string> args)
