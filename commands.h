@@ -32,6 +32,7 @@ void exec(std::string filename, std::vector<std::string> args);
 void initTermios();
 void resetTermios();
 std::vector<std::string> getDirFiles(std::string path);
+std::string clearEscapedString(std::string str);
 
 static std::string path[] = {
 	"/usr/local/sbin",

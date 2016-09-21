@@ -25,6 +25,20 @@ void print(const char *str)
     write(STDOUT_FILENO, str, strlen(str)); //Obligé d'utiliser write car elle est async-safe
 }
 
+string clearEscapedString(string str)
+{
+    string result(str);
+    size_t retFind = result.find("\\");
+
+    while(retFind != string::npos)
+    {
+        result.erase(retFind, 1);
+        retFind = result.find("\\");
+    }
+
+    return result;
+}
+
 bool isDir(const char* path)
 {
     struct stat buf;
@@ -46,6 +60,7 @@ string compare(string s1, string s2)
 
 vector<string> getDirFiles(string path)
 {
+    path = clearEscapedString(path);
     vector<string> files;
 
     DIR *dir = opendir(path.c_str());
@@ -159,7 +174,7 @@ string processUserInput()
 
                 case 66: //flèche bas
                 {
-                    if(*it_commands_history != commands_history.back())
+                    if(it_commands_history != commands_history.rbegin())
                     {
                         string clean_line = "";
 
@@ -241,19 +256,29 @@ string processUserInput()
 
         else if(c == 9 && shiftIndex == 0) //TAB = AUTOCOMPLETION, pas d'autocompletion si on est pas à la fin de la ligne
         {
+            int command_size = line.size()-1; //Variable contenant la taille de la commande (si elle existe)
+
+            if(line[command_size] != ' ')
+            {
+                while(command_size > 1)
+                {
+                    command_size--;
+
+                    if(line[command_size] == ' ' && line[command_size-1] != '\\')
+                        break;
+                }
+            }
+
+            if(command_size == 1) //aucun programme à 1 caractère
+                command_size = 0;
+            else
+                command_size++; //skip ' '
+
+            if(command_size == 1) //fix bug
+                command_size--;
+
             if(line.find('/') != string::npos) //S'il y a un / dans line c'est qu'il s'agit d'un chemin d'accès
             {
-                int command_size = 0; //Variable contenant la taille de la commande (si elle existe)
-
-                while(command_size < (int)line.size() && line[command_size] != ' ')
-                    command_size++;
-
-                if(command_size == (int)line.size())
-                    command_size = 0;
-
-                else
-                    command_size++; //skip ' '
-
                 string path = "";
                 string autocomplete_word = "";
 
@@ -278,9 +303,11 @@ string processUserInput()
                 vector<string> files = getDirFiles(path);
                 string complete_with = "";
 
+                //print(to_string(files.size()).c_str());
+
                 if(files.size() == 1)
                 {
-                    if(files.at(0).find(autocomplete_word) == 0)
+                    //if(files.at(0).find(autocomplete_word) == 0)
                         complete_with = files.at(0);
                 }
 
@@ -326,11 +353,22 @@ string processUserInput()
 
                 if(complete_with != "")
                 {
+                    int len = complete_with.size();
+                    for(int i = 1; i < len; i++)
+                    {
+                        if(complete_with[i] == ' ' && complete_with[i-1] != '\\')
+                        {
+                            complete_with.insert(i, 1, '\\');
+                            i++;
+                            len++;
+                        }
+                    }
+
                     print(complete_with.c_str());
                     line += complete_with;
                 }
 
-                if(line[line.size()-1] != '/' && isDir(line.substr(command_size).c_str()))
+                if(line[line.size()-1] != '/' && isDir(clearEscapedString(line.substr(command_size)).c_str()))
                 {
                     line += "/";
                     print("/");
@@ -339,18 +377,6 @@ string processUserInput()
 
             else
             {
-                int command_size = 0; //Variable contenant la taille de la commande (si elle existe)
-
-                while(command_size < (int)line.size() && line[command_size] != ' ')
-                    command_size++;
-
-                if(command_size == (int)line.size())
-                    command_size = 0;
-
-                else
-                    command_size++; //skip ' '
-
-
                 vector<string> files = getDirFiles(workingDirectory);
                 vector<string> possible_dirs;
 
@@ -365,8 +391,19 @@ string processUserInput()
                     int len = possible_dirs.at(0).size();
                     string sub = possible_dirs.at(0).substr(line.size()-command_size, len);
 
-                    if(isDir((line.substr(command_size) + sub).c_str()))
+                    if(isDir(clearEscapedString((line.substr(command_size) + sub)).c_str()))
                         sub += "/";
+
+                    len = sub.size();
+                    for(int i = 1; i < len; i++)
+                    {
+                        if(sub[i] == ' ' && sub[i-1] != '\\')
+                        {
+                            sub.insert(i, 1, '\\');
+                            i++;
+                            len++;
+                        }
+                    }
 
                     line += sub;
                     print(sub.c_str());
@@ -541,6 +578,7 @@ int main(int argc, char **argv)
                     for(string p : path)
                     {
                         string prog = p + "/" + command;
+                        prog = clearEscapedString(prog);
 
                         if(!access(prog.c_str(), X_OK)) //Si le fichier est executable
                         {

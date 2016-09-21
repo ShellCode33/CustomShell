@@ -30,6 +30,8 @@ void cd(vector<string> args)
     for(string str : args)
         dirName += str + " ";
 
+    dirName = clearEscapedString(dirName);
+
     dirName.erase(dirName.end()-1);
 
     if(!args.size())
@@ -76,10 +78,19 @@ void shell(vector<string> args)
 
 void ls(vector<string> args)
 {
-    string dirName = workingDirectory;
+    string dirName = "";
+
+    if(args.size() == 0)
+        dirName = workingDirectory;
+
+    for(string str : args)
+        dirName += str + " ";
 
     if(args.size() > 0)
-        dirName = args.at(0);
+    {
+        dirName = clearEscapedString(dirName);
+        dirName.erase(dirName.size()-1);
+    }
 
     vector<string> files = getDirFiles(dirName);
 
@@ -106,6 +117,8 @@ void exec(string filename, vector<string> args)
 
     for(string s: args)
         cmd += " " + s;
+
+    cmd = clearEscapedString(cmd);
 
     resetTermios();
     system(cmd.c_str());
