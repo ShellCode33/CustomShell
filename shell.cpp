@@ -2,6 +2,8 @@
 
 using namespace std;
 
+char hostname[1024]; //Global car utlisé dans le main ET dans le handleCtrlC(), etc...
+
 vector<string> split(string str){
     istringstream stream(str);
     vector<string> words;
@@ -21,6 +23,13 @@ vector<string> split(string str){
 void print(const char *str)
 {
     write(STDOUT_FILENO, str, strlen(str)); //Obligé d'utiliser write car elle est async-safe
+}
+
+bool isDir(const char* path)
+{
+    struct stat buf;
+    stat(path, &buf);
+    return S_ISDIR(buf.st_mode);
 }
 
 //retourne le début "commun" de 2 strings
@@ -50,10 +59,10 @@ vector<string> getDirFiles(string path)
 
         closedir (dir);
     }
-
+/*
     else
         cout << "Impossible de lister le contenu du repertoire." << endl;
-
+*/
     return files;
 }
 
@@ -102,10 +111,11 @@ string processUserInput()
     while(c != '\n')
     {
         read(STDIN_FILENO, &c, 1);
-        //string test = "code: ";
-        //test += to_string((int)c) + "\n";
-        //write(STDOUT_FILENO, test.c_str(), test.size());
-
+        /*
+        string test = "code: ";
+        test += to_string((int)c) + "\n";
+        write(STDOUT_FILENO, test.c_str(), test.size());
+        */
         if((int)c == 27)
             key_code_history[0] = 27;
         else if((int)c == 91 && key_code_history[0] == 27)
@@ -251,6 +261,9 @@ string processUserInput()
                 while(line[slash_index] != '/')
                     slash_index--;
 
+                if(slash_index == command_size)
+                    path += "/";
+
                 for(int i = command_size; i < slash_index; i++)
                     path += line[i];
 
@@ -266,21 +279,46 @@ string processUserInput()
                 string complete_with = "";
 
                 if(files.size() == 1)
-                    complete_with = files.at(0);
-
-                else
                 {
-                    for(string file : files)
-                        if(file.find(autocomplete_word) == 0) //si le fichier commence par autocomplete_word
-                        {
-                            if(complete_with == "")
-                                complete_with = file;
-                            else
-                                complete_with = compare(complete_with, file);
-                        }
+                    if(files.at(0).find(autocomplete_word) == 0)
+                        complete_with = files.at(0);
                 }
 
-                if(complete_with != autocomplete_word)
+                else if(files.size() > 0)
+                {
+                    if(autocomplete_word != "")
+                    {
+                        for(string file : files)
+                        {
+                            if(file.find(autocomplete_word) == 0) //si le fichier commence par autocomplete_word
+                            {
+                                if(complete_with == "")
+                                    complete_with = file;
+                                else
+                                    complete_with = compare(complete_with, file);
+                            }
+                        }
+                    }
+
+                    else
+                    {
+                        print("\n");
+
+                        for(string file : files)
+                        {
+                            if(file[0] != '.')
+                            {
+                                print(file.c_str());
+                                print(" ");
+                            }
+                        }
+
+                        string str = string("\n\033[94m") + getenv("USER") +  "@" + hostname + " \033[92m" + workingDirectory + " : \033[0m" + line;
+                        print(str.c_str());
+                    }
+                }
+
+                if(complete_with != "" && complete_with != autocomplete_word)
                     complete_with = complete_with.substr(autocomplete_word.size(), complete_with.size()-autocomplete_word.size());
 
                 else
@@ -291,11 +329,101 @@ string processUserInput()
                     print(complete_with.c_str());
                     line += complete_with;
                 }
+
+                if(line[line.size()-1] != '/' && isDir(line.substr(command_size).c_str()))
+                {
+                    line += "/";
+                    print("/");
+                }
             }
 
-            else //commande ou fichier/dossier "direct" (sans chemin d'accès, dans le répertoire courant)
+            else
             {
-                
+                int command_size = 0; //Variable contenant la taille de la commande (si elle existe)
+
+                while(command_size < (int)line.size() && line[command_size] != ' ')
+                    command_size++;
+
+                if(command_size == (int)line.size())
+                    command_size = 0;
+
+                else
+                    command_size++; //skip ' '
+
+
+                vector<string> files = getDirFiles(workingDirectory);
+                vector<string> possible_dirs;
+
+                for(string file : files)
+                {
+                    if(file.find(line.substr(command_size)) == 0)
+                        possible_dirs.push_back(file);
+                }
+
+                if(possible_dirs.size() == 1)
+                {
+                    int len = possible_dirs.at(0).size();
+                    string sub = possible_dirs.at(0).substr(line.size()-command_size, len);
+
+                    if(isDir((line.substr(command_size) + sub).c_str()))
+                        sub += "/";
+
+                    line += sub;
+                    print(sub.c_str());
+                }
+
+                else if((int)line.size() == command_size || (possible_dirs.size() > 0 && possible_dirs.size() < 50))
+                {
+                    print("\n");
+
+                    for(string dir : possible_dirs)
+                    {
+                        print(dir.c_str());
+                        print(" ");
+                    }
+
+                    string str = string("\n\033[94m") + getenv("USER") +  "@" + hostname + " \033[92m" + workingDirectory + " : \033[0m";
+                    print(str.c_str());
+                    print(line.c_str());
+                }
+
+                //Si aucun dossier n'a été trouvé, alors on recherche les programmes du path
+                if(possible_dirs.size() == 0)
+                {
+                    vector<string> possible_commands;
+
+                    for(string item : path)
+                    {
+                        vector<string> files = getDirFiles(item);
+
+                        for(string file : files)
+                            if(file.find(line.substr(command_size)) == 0)
+                                possible_commands.push_back(file);
+                    }
+
+                    if(possible_commands.size() == 1)
+                    {
+                        int len = possible_commands.at(0).size()-line.size()-command_size;
+                        string sub = possible_commands.at(0).substr(line.size()-command_size, len);
+                        line += sub;
+                        print(sub.c_str());
+                    }
+
+                    else if(possible_commands.size() > 0 && possible_commands.size() < 50) //Pour éviter de flooder le terminal
+                    {
+                        print("\n");
+
+                        for(string file : possible_commands)
+                        {
+                            print(file.c_str());
+                            print(" ");
+                        }
+
+                        string str = string("\n\033[94m") + getenv("USER") +  "@" + hostname + " \033[92m" + workingDirectory + " : \033[0m";
+                        print(str.c_str());
+                        print(line.c_str());
+                    }
+                }
             }
         }
 
@@ -354,8 +482,6 @@ string processUserInput()
     write(STDOUT_FILENO, "\n", 1);
     return line;
 }
-
-char hostname[1024]; //Global car utlisé dans le main ET dans le handleCtrlC()
 
 void handleCtrlC(int signal)
 {

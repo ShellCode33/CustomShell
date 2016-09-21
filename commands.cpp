@@ -81,8 +81,16 @@ void ls(vector<string> args)
     if(args.size() > 0)
         dirName = args.at(0);
 
-    for(string file : getDirFiles(dirName))
-        cout << file << " ";
+    vector<string> files = getDirFiles(dirName);
+
+    if(files.size() > 0)
+    {
+        for(string file : files)
+            cout << file << " ";
+    }
+
+    else
+        cout << "Aucun fichier ou dossier.";
 
     cout << endl;
 }
