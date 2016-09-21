@@ -81,22 +81,10 @@ void ls(vector<string> args)
     if(args.size() > 0)
         dirName = args.at(0);
 
-    DIR *dir = opendir(dirName.c_str());
-    struct dirent *item;
+    for(string file : getDirFiles(dirName))
+        cout << file << " ";
 
-
-    if(dir != NULL)
-    {
-        while ((item = readdir(dir)) != NULL)
-            if(strcmp(item->d_name, "..") != 0 && strcmp(item->d_name, ".") != 0)
-                cout << item->d_name << " ";
-
-        closedir (dir);
-        cout << endl;
-    }
-
-    else
-        cout << "Impossible de lister le contenu du repertoire." << endl;
+    cout << endl;
 }
 
 void clear(vector<string> args)

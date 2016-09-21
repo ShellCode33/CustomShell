@@ -23,6 +23,42 @@ void print(const char *str)
     write(STDOUT_FILENO, str, strlen(str)); //Obligé d'utiliser write car elle est async-safe
 }
 
+//retourne le début "commun" de 2 strings
+string compare(string s1, string s2)
+{
+    string common = "";
+
+    int i = 0;
+    while(s1[i] == s2[i])
+        common += s1[i++];
+
+    return common;
+}
+
+vector<string> getDirFiles(string path)
+{
+    vector<string> files;
+
+    DIR *dir = opendir(path.c_str());
+    struct dirent *item;
+
+    if(dir != NULL)
+    {
+        while ((item = readdir(dir)) != NULL)
+            if(strcmp(item->d_name, "..") != 0 && strcmp(item->d_name, ".") != 0)
+                files.push_back(string(item->d_name));
+
+        closedir (dir);
+    }
+
+    else
+        cout << "Impossible de lister le contenu du repertoire." << endl;
+
+    return files;
+}
+
+
+
 //TERMINAL IN ROW MODE
 /* Initialize new terminal i/o settings */
 static struct termios old, new1;
@@ -142,6 +178,25 @@ string processUserInput()
                         arrow_down = true;
                     }
 
+                    else if(line != "")
+                    {
+                        string clean_line = "";
+
+                        for(int i = 0; i < (int)line.size()+shiftIndex; i++)
+                            clean_line += "\b";
+
+                        for(int i = 0; i < (int)line.size(); i++)
+                            clean_line += " ";
+
+                        for(int i = 0; i < (int)line.size(); i++)
+                            clean_line += "\b";
+
+                        print(clean_line.c_str());
+                        line = "";
+                        arrow_up = false;
+                        arrow_down = false;
+                    }
+
                     break;
                 }
 
@@ -174,9 +229,57 @@ string processUserInput()
             key_code_history[0] = key_code_history[1] = 0;
         }
 
-        else if(c == 9) //TAB = AUTOCOMPLETION
+        else if(c == 9 && shiftIndex == 0) //TAB = AUTOCOMPLETION, pas d'autocompletion si on est pas à la fin de la ligne
         {
+            if(line.find('/') != string::npos) //S'il y a un / dans line c'est qu'il s'agit d'un chemin d'accès
+            {
+              /*
+                int command_size = 0; //Variable contenant la taille de la commande (si elle existe)
 
+                while(line[command_size] != ' ' && line[command_size] != '\0' && line[command_size] != '\n')
+                  command_size++;
+
+                if(command_size == line.size())
+                    command_size = 0;
+*/
+                string path = "";
+                string autocomplete_word = "";
+
+                int slash_index = line.size()-1;
+                while(line[slash_index] != '/')
+                    slash_index--;
+
+                for(int i = 0; i < slash_index; i++)
+                    path += line[i];
+
+                for(int i = slash_index+1; i < line.size(); i++)
+                    autocomplete_word += line[i];
+/*
+                print("path: ");
+                print(path.c_str());
+                print("autocomplete_word: ");
+                print(autocomplete_word.c_str());
+*/
+                vector<string> files = getDirFiles(path);
+
+                string complete_with = "";
+                for(string file : files)
+                    if(file.find(autocomplete_word) == 0) //si le fichier commence par autocomplete_word
+                        if(complete_with == "")
+                            complete_with = file;
+                        else
+                            complete_with = compare(complete_with, file);
+
+                complete_with = complete_with.substr(autocomplete_word.size(), complete_with.size()-autocomplete_word.size());
+
+                print(complete_with.c_str());
+                line += complete_with;
+            }
+
+            else //commande ou fichier/dossier "direct" (sans chemin d'accès, dans le répertoire courant)
+            {
+
+            }
         }
 
         else if(c == 127) //EFFACER
