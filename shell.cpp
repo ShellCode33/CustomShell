@@ -233,15 +233,17 @@ string processUserInput()
         {
             if(line.find('/') != string::npos) //S'il y a un / dans line c'est qu'il s'agit d'un chemin d'accès
             {
-              /*
                 int command_size = 0; //Variable contenant la taille de la commande (si elle existe)
 
-                while(line[command_size] != ' ' && line[command_size] != '\0' && line[command_size] != '\n')
-                  command_size++;
+                while(command_size < (int)line.size() && line[command_size] != ' ')
+                    command_size++;
 
-                if(command_size == line.size())
+                if(command_size == (int)line.size())
                     command_size = 0;
-*/
+
+                else
+                    command_size++; //skip ' '
+
                 string path = "";
                 string autocomplete_word = "";
 
@@ -249,10 +251,10 @@ string processUserInput()
                 while(line[slash_index] != '/')
                     slash_index--;
 
-                for(int i = 0; i < slash_index; i++)
+                for(int i = command_size; i < slash_index; i++)
                     path += line[i];
 
-                for(int i = slash_index+1; i < line.size(); i++)
+                for(int i = slash_index+1; i < (int)line.size(); i++)
                     autocomplete_word += line[i];
 /*
                 print("path: ");
@@ -261,24 +263,39 @@ string processUserInput()
                 print(autocomplete_word.c_str());
 */
                 vector<string> files = getDirFiles(path);
-
                 string complete_with = "";
-                for(string file : files)
-                    if(file.find(autocomplete_word) == 0) //si le fichier commence par autocomplete_word
-                        if(complete_with == "")
-                            complete_with = file;
-                        else
-                            complete_with = compare(complete_with, file);
 
-                complete_with = complete_with.substr(autocomplete_word.size(), complete_with.size()-autocomplete_word.size());
+                if(files.size() == 1)
+                    complete_with = files.at(0);
 
-                print(complete_with.c_str());
-                line += complete_with;
+                else
+                {
+                    for(string file : files)
+                        if(file.find(autocomplete_word) == 0) //si le fichier commence par autocomplete_word
+                        {
+                            if(complete_with == "")
+                                complete_with = file;
+                            else
+                                complete_with = compare(complete_with, file);
+                        }
+                }
+
+                if(complete_with != autocomplete_word)
+                    complete_with = complete_with.substr(autocomplete_word.size(), complete_with.size()-autocomplete_word.size());
+
+                else
+                    complete_with = "";
+
+                if(complete_with != "")
+                {
+                    print(complete_with.c_str());
+                    line += complete_with;
+                }
             }
 
             else //commande ou fichier/dossier "direct" (sans chemin d'accès, dans le répertoire courant)
             {
-
+                
             }
         }
 
