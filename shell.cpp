@@ -20,7 +20,7 @@ vector<string> split(string str){
     return words;
 }
 
-void print(const char *str)
+inline void print(const char *str)
 {
     write(STDOUT_FILENO, str, strlen(str)); //Obligé d'utiliser write car elle est async-safe
 }
@@ -52,7 +52,7 @@ string compare(string s1, string s2)
     string common = "";
 
     int i = 0;
-    while(s1[i] == s2[i])
+    while(s1[i] != '\0' && s1[i] == s2[i])
         common += s1[i++];
 
     return common;
@@ -289,41 +289,67 @@ string processUserInput()
                 if(slash_index == command_size)
                     path += "/";
 
-                for(int i = command_size; i < slash_index; i++)
+                for(int i = command_size; i < slash_index+1; i++)
                     path += line[i];
 
                 for(int i = slash_index+1; i < (int)line.size(); i++)
                     autocomplete_word += line[i];
 /*
-                print("path: ");
+                print("\n\npath: ");
                 print(path.c_str());
                 print("autocomplete_word: ");
                 print(autocomplete_word.c_str());
+                print("\n\n");
 */
                 vector<string> files = getDirFiles(path);
                 string complete_with = "";
+
+                if(autocomplete_word != "")
+                {
+                    for(string file : files)
+                    {
+                        if(file.find(autocomplete_word) == 0) //si le fichier commence par autocomplete_word
+                        {
+                            complete_with = file;
+                            break;
+                        }
+                    }
+                }
 
                 //print(to_string(files.size()).c_str());
 
                 if(files.size() == 1)
                 {
-                    //if(files.at(0).find(autocomplete_word) == 0)
-                        complete_with = files.at(0);
+                    complete_with = files.at(0);
                 }
 
                 else if(files.size() > 0)
                 {
                     if(autocomplete_word != "")
                     {
+                        vector<string> possible_files;
+
                         for(string file : files)
                         {
                             if(file.find(autocomplete_word) == 0) //si le fichier commence par autocomplete_word
                             {
-                                if(complete_with == "")
-                                    complete_with = file;
-                                else
-                                    complete_with = compare(complete_with, file);
+                                complete_with = compare(complete_with, file);
+                                possible_files.push_back(file);
                             }
+                        }
+
+                        if(possible_files.size() > 1)
+                        {
+                            print("\n");
+
+                            for(string file : possible_files)
+                            {
+                                print(file.c_str());
+                                print(" ");
+                            }
+
+                            string str = string("\n\033[94m") + getenv("USER") +  "@" + hostname + " \033[92m" + workingDirectory + " : \033[0m" + line;
+                            print(str.c_str());
                         }
                     }
 
@@ -413,11 +439,18 @@ string processUserInput()
                 {
                     print("\n");
 
+                    string complete_with = possible_dirs.at(0);
+
                     for(string dir : possible_dirs)
                     {
+                        complete_with = compare(complete_with, dir);
+
                         print(dir.c_str());
                         print(" ");
                     }
+
+                    if(line != "")
+                        line += complete_with.substr(line.size()-command_size);
 
                     string str = string("\n\033[94m") + getenv("USER") +  "@" + hostname + " \033[92m" + workingDirectory + " : \033[0m";
                     print(str.c_str());
