@@ -1,59 +1,54 @@
 #ifndef COMMANDS_H
 #define COMMANDS_H
 
-#include <stdlib.h>
 #include <unistd.h>
-#include <dirent.h>
+
 #include <iostream>
 #include <vector>
 #include <string>
-#include <sstream>
 #include <map>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/stat.h>
+
 #include <signal.h>
 #include <termios.h>
-#include <list>
 
-typedef void(*func_ptr)(std::vector<std::string>); //pointeur de fonction
+class Shell;
+
+class Command
+{
+typedef void(Command::*func_ptr)(std::vector<std::string>); //pointeur de methode
+
+public:
+    Command(Shell &shell);
+    void help(std::vector<std::string> args);
+    void runshell(std::vector<std::string> args);
+    void cd(std::vector<std::string> args);
+    //void ls(std::vector<std::string> args); // /bin/ls
+    void echo(std::vector<std::string> args);
+    void pwd(std::vector<std::string> args);
+    void exit_prog(std::vector<std::string> args);
+    void clear(std::vector<std::string> args);
+    void exec(std::string filename, std::vector<std::string> args);
+
+    std::vector<std::string> getDirFiles(std::string path);
+    std::string clearEscapedString(std::string str);
+    std::map<std::string, func_ptr> &getAvailableCommands();
 
 
-void help(std::vector<std::string> args);
-void shell(std::vector<std::string> args);
-void cd(std::vector<std::string> args);
-void ls(std::vector<std::string> args);
-void echo(std::vector<std::string> args);
-void pwd(std::vector<std::string> args);
-void exit_prog(std::vector<std::string> args);
-void clear(std::vector<std::string> args);
-void exec(std::string filename, std::vector<std::string> args);
+private:
+    Shell &shell; //Les fonctions de cette classe ne peuvent pas être statiques à cause de cet attribut.
+    std::map<std::string, func_ptr> commands = {
+                                                 {"help", &Command::help},
+                                                 {"shell", &Command::runshell},
+                                                 {"echo", &Command::echo},
+                                                 {"cd", &Command::cd},
+                                                 //{"ls", ls}, //Autant utiliser /bin/ls
+                                                 {"pwd", &Command::pwd},
+                                                 {"exit", &Command::exit_prog},
+                                                 {"clear", &Command::clear}
+                                             };
 
-void initTermios();
-void resetTermios();
-std::vector<std::string> getDirFiles(std::string path);
-std::string clearEscapedString(std::string str);
 
-static std::string path[] = {
-	"/usr/local/sbin",
-	"/usr/local/bin",
-	"/usr/sbin",
-	"/usr/bin",
-	"/sbin",
-	"/bin"
-};
 
-extern char* workingDirectory; //Variable déclarée dans commands.cpp
-
-static std::map<std::string, func_ptr> commands {
-    {"help", help},
-    {"shell", shell},
-    {"echo", echo},
-    {"cd", cd},
-	{"ls", ls},
-    {"pwd", pwd},
-    {"exit", exit_prog},
-	{"clear", clear}
 };
 
 #endif //COMMANDS_H

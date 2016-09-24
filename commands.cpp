@@ -1,10 +1,16 @@
 #include "commands.h"
+#include "shell.h"
 
 using namespace std;
 
-char* workingDirectory;
+typedef void(Command::*func_ptr)(std::vector<std::string>); //pointeur de fonction
 
-void help(vector<string> args)
+Command::Command(Shell &shell) : shell(shell)
+{
+
+}
+
+void Command::help(vector<string> args)
 {
     cout << "\t- echo : affiche le texte qui suit" << endl;
     cout << "\t- cd : change le dossier courant" << endl;
@@ -15,7 +21,7 @@ void help(vector<string> args)
     cout << "\t- exit : quitte le shell courant" << endl;
 }
 
-void echo(vector<string> args)
+void Command::echo(vector<string> args)
 {
     for(string str : args)
         cout << str << " ";
@@ -23,14 +29,14 @@ void echo(vector<string> args)
     cout << endl;
 }
 
-void cd(vector<string> args)
+void Command::cd(vector<string> args)
 {
     string dirName = "";
 
     for(string str : args)
         dirName += str + " ";
 
-    dirName = clearEscapedString(dirName);
+    dirName = Utils::clearEscapedString(dirName);
 
     dirName.erase(dirName.end()-1);
 
@@ -57,26 +63,30 @@ void cd(vector<string> args)
     }
 }
 
-void pwd(vector<string> args)
+void Command::pwd(vector<string> args)
 {
-    if(workingDirectory != NULL)
-        cout << workingDirectory << endl;
+    if(shell.getWorkingDirectory() != "")
+        cout << shell.getWorkingDirectory() << endl;
+    else
+        cout << "pwd error." << endl;
 }
 
-void exit_prog(vector<string> args)
+void Command::exit_prog(vector<string> args)
 {
-    resetTermios();
+    shell.rawMode(false);
     exit(0);
 }
 
-void shell(vector<string> args)
+void Command::runshell(vector<string> args)
 {
-    resetTermios();
+    shell.rawMode(false);
     system(getenv("SHELL"));
-    initTermios();
+    shell.rawMode(true);
 }
 
-void ls(vector<string> args)
+/*
+//Autant utiliser /bin/ls
+void Command::ls(vector<string> args)
 {
     string dirName = "";
 
@@ -105,22 +115,28 @@ void ls(vector<string> args)
 
     cout << endl;
 }
+*/
 
-void clear(vector<string> args)
+void Command::clear(vector<string> args)
 {
     write(STDOUT_FILENO, "\033[2J\033[1;1H", sizeof("\033[2J\033[1;1H")); //async safe
 }
 
-void exec(string filename, vector<string> args)
+void Command::exec(string filename, vector<string> args)
 {
     string cmd = filename;
 
     for(string s: args)
         cmd += " " + s;
 
-    cmd = clearEscapedString(cmd);
+    cmd = Utils::clearEscapedString(cmd);
 
-    resetTermios();
+    shell.rawMode(false);
     system(cmd.c_str());
-    initTermios();
+    shell.rawMode(true);
+}
+
+map<string, func_ptr>& Command::getAvailableCommands()
+{
+    return commands;
 }
