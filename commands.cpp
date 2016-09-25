@@ -124,12 +124,10 @@ void Command::clear(vector<string> args)
 
 void Command::exec(string filename, vector<string> args)
 {
-    string cmd = filename;
+    string cmd = Utils::escapeString(filename);
 
     for(string s: args)
-        cmd += " " + s;
-
-    cmd = Utils::clearEscapedString(cmd);
+        cmd += " " + Utils::escapeString(s);
 
     shell.rawMode(false);
     system(cmd.c_str());

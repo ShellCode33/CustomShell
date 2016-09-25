@@ -5,6 +5,7 @@
 #include <string>
 #include <signal.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
 
 #include "commandline.h"
 #include "utils.h"
@@ -19,13 +20,14 @@ public:
     void resetArrows(); //Réinisialise l'état des flèches
 
 private:
+    struct winsize window_size; //contient la largeur et hauteur du terminal
     Shell &shell;
     CommandLine &commandLine;
     bool arrow_up, arrow_down; //Etat précédent des flèches, ces variables sont utilisées pour l'historique des commandes
     int key_code_history[2];
     std::string line;
 
-    void handleCtrlC(int signal);
+    void handleCtrlC();
 
 };
 

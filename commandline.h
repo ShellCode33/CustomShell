@@ -6,6 +6,8 @@
 #include <sstream>
 #include <list>
 
+#include "utils.h"
+
 class CommandLine
 {
 public:
@@ -20,12 +22,12 @@ public:
     void setBegin(); //Remet l'historique au début
 
     std::vector<std::string> getArgs() const;
+    void customArgs();
 
 private:
     std::string command;
     std::vector<std::string> args;
     std::string path;
-    std::string last; //contient élément de la ligne pour l'auto-complétion
 
     std::list<std::string> commands_history;
     std::list<std::string>::reverse_iterator it_commands_history;

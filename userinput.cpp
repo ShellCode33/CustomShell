@@ -5,12 +5,12 @@ using namespace std;
 
 UserInput::UserInput(Shell &shell, CommandLine &commandLine) : shell(shell), commandLine(commandLine), arrow_up(false), arrow_down(false), key_code_history({0, 0})
 {
-
+    //RETOUR A LA LIGNE LORS DEFFACEMENT
 }
 
-void UserInput::handleCtrlC(int signal)
+void UserInput::handleCtrlC()
 {
-    string str = string("^C\n\033[94m") + getenv("USER") +  "@" + shell.getHostname() + " \033[92m" + shell.getWorkingDirectory() + " : \033[0m";
+    string str = string("^C\n") + shell.getComputedLineInterface();
     shell.print(str);
     key_code_history[0] = key_code_history[1] = 0;
     line = "";
@@ -25,6 +25,7 @@ string UserInput::processInput()
     char c = '\0';
     while(c != '\n')
     {
+        ioctl(STDOUT_FILENO, TIOCGWINSZ, &window_size); //On actualise la taille du terminal (au cas où celle-ci changerait)
         read(STDIN_FILENO, &c, 1);
         /*
         string test = "code: ";
@@ -248,7 +249,7 @@ string UserInput::processInput()
                                 shell.print(" ");
                             }
 
-                            string str = string("\n\033[94m") + getenv("USER") +  "@" + shell.getHostname() + " \033[92m" + shell.getWorkingDirectory() + " : \033[0m" + line;
+                            string str = string("\n") + shell.getComputedLineInterface() + line;
                             shell.print(str);
                         }
                     }
@@ -266,7 +267,7 @@ string UserInput::processInput()
                             }
                         }
 
-                        string str = string("\n\033[94m") + getenv("USER") +  "@" + shell.getHostname() + " \033[92m" + shell.getWorkingDirectory() + " : \033[0m" + line;
+                        string str = string("\n") + shell.getComputedLineInterface() + line;
                         shell.print(str);
                     }
                 }
@@ -279,17 +280,7 @@ string UserInput::processInput()
 
                 if(complete_with != "")
                 {
-                    int len = complete_with.size();
-                    for(int i = 1; i < len; i++)
-                    {
-                        if(complete_with[i] == ' ' && complete_with[i-1] != '\\')
-                        {
-                            complete_with.insert(i, 1, '\\');
-                            i++;
-                            len++;
-                        }
-                    }
-
+                    complete_with = Utils::escapeString(complete_with);
                     shell.print(complete_with);
                     line += complete_with;
                 }
@@ -320,17 +311,7 @@ string UserInput::processInput()
                     if(Utils::isDir(Utils::clearEscapedString((line.substr(command_size) + sub)).c_str()))
                         sub += "/";
 
-                    len = sub.size();
-                    for(int i = 1; i < len; i++)
-                    {
-                        if(sub[i] == ' ' && sub[i-1] != '\\')
-                        {
-                            sub.insert(i, 1, '\\');
-                            i++;
-                            len++;
-                        }
-                    }
-
+                    sub = Utils::escapeString(sub);
                     line += sub;
                     shell.print(sub);
                 }
@@ -345,14 +326,17 @@ string UserInput::processInput()
                     {
                         complete_with = Utils::compare(complete_with, dir);
 
-                        shell.print(dir);
-                        shell.print(" ");
+                        if(dir[0] != '.')
+                        {
+                            shell.print(dir);
+                            shell.print(" ");
+                        }
                     }
 
                     if(line != "")
                         line += complete_with.substr(line.size()-command_size);
 
-                    string str = string("\n\033[94m") + getenv("USER") +  "@" + shell.getHostname() + " \033[92m" + shell.getWorkingDirectory() + " : \033[0m";
+                    string str = string("\n") + shell.getComputedLineInterface();
                     shell.print(str);
                     shell.print(line);
                 }
@@ -389,7 +373,7 @@ string UserInput::processInput()
                             shell.print(" ");
                         }
 
-                        string str = string("\n\033[94m") + getenv("USER") +  "@" + shell.getHostname() + " \033[92m" + shell.getWorkingDirectory() + " : \033[0m";
+                        string str = string("\n") + shell.getComputedLineInterface();
                         shell.print(str);
                         shell.print(line);
                     }
@@ -399,10 +383,36 @@ string UserInput::processInput()
 
         else if(c == 127) //EFFACER
         {
-            if(line.size() > 0)
+            int weird_shift = 7; //pourquoi? Je ne sais pas encore...
+
+            if(line.size()+shiftIndex+shell.getLineInterfaceSize()+weird_shift == window_size.ws_col)
+                write(STDOUT_FILENO, "\033[1A\033[1000C ", sizeof("\033[1A\033[1000C ")); //CURSOR UP & CURSOR TO THE END
+
+            if(line.size() > 0 && shiftIndex == 0)
             {
+                if(line.size()+shiftIndex+shell.getLineInterfaceSize()+weird_shift == window_size.ws_col)
+                    write(STDOUT_FILENO, " \b\033[1A\033[1000C", sizeof(" \b\033[1A\033[1000C"));
+                else
+                    write(STDOUT_FILENO, "\b \b", 3);
                 line.erase(line.end()-1);
-                write(STDOUT_FILENO, "\b \b", 3);
+            }
+
+            else if(line.size() > 0 && -shiftIndex < line.size())
+            {
+                string sub = line.substr(line.size()+shiftIndex, -shiftIndex);
+                line.erase(line.end()-1+shiftIndex);
+
+                write(STDOUT_FILENO, "\b", 1);
+
+
+                for(int i = 0; i < -shiftIndex+1; i++)
+                    sub += " "; //efface les caractères en trop dans la console
+
+                for(int i = 0; i < -shiftIndex*2+1; i++)
+                    sub += "\b";
+
+
+                shell.print(sub);
             }
         }
 
@@ -423,6 +433,11 @@ string UserInput::processInput()
 
                 shiftIndex++;
             }
+        }
+
+        else if(c == 3) // CTRL + C
+        {
+            handleCtrlC();
         }
 
         else if((c >= 32 && c <= 125) ) //si c'est un caractère "normal"

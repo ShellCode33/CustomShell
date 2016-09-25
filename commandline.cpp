@@ -10,17 +10,30 @@ CommandLine::CommandLine(string line)
 
 vector<string> CommandLine::split(string line) const
 {
-    istringstream stream(line);
     vector<string> words;
 
-    while (stream)
-    {
-        string word;
-        stream >> word;
+    int i = 0;
+    while(line[i] == ' ') //skip spaces
+        i++;
 
-        if(word != "\0") //fix bug, en effet un mot vide était ajouté à la fin du vecteur de strings
-            words.push_back(word);
+    int begin_index = i;
+
+
+    for(; i < (int)line.size(); i++)
+    {
+        if(line[i] == ' ' && line[i-1] != '\\')
+        {
+            words.push_back(line.substr(begin_index, i-begin_index));
+            begin_index = i+1;
+
+            while(line[i] == ' ') //skip spaces
+                i++;
+        }
     }
+
+    if(begin_index < (int)line.size())
+        words.push_back(line.substr(begin_index));
+
 
     return words;
 }
@@ -34,14 +47,15 @@ void CommandLine::update(string line)
 
     vector<string> splitCommand = split(line);
     command = splitCommand.at(0);
+    customArgs();
 
-    for(int i = 1; i < splitCommand.size(); i++)
+    for(int i = 1; i < (int)splitCommand.size(); i++)
         args.push_back(splitCommand.at(i));
 }
 
 std::string CommandLine::getCommand() const
 {
-    return command;
+    return Utils::clearEscapedString(command);
 }
 
 std::list<std::string>& CommandLine::getCommandsHistory()
@@ -62,4 +76,10 @@ void CommandLine::setBegin()
 std::vector<std::string> CommandLine::getArgs() const
 {
     return args;
+}
+
+void CommandLine::customArgs()
+{
+    if(command == "ls")
+        args.push_back("--color=auto");
 }

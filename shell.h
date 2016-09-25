@@ -24,6 +24,8 @@ public:
     std::string getWorkingDirectory() const;
     std::string getHostname() const;
     std::vector<std::string> getPath() const;
+    std::string getComputedLineInterface() const;
+    int getLineInterfaceSize() const;
 
 private:
     struct termios old, new1;

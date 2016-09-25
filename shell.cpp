@@ -43,6 +43,34 @@ string Shell::getHostname() const
     return hostname;
 }
 
+//Replace some pieces of path like HOME, VIDEOS, PICTURES etc... in order to shorten the path
+string Shell::getComputedLineInterface() const
+{
+    string computed = string("\033[94m") + getenv("USER") +  "@" + getHostname();
+    string wd = getWorkingDirectory();
+    string base = string("/home/") + getenv("USER");
+    size_t index = string::npos;
+
+    if((index = wd.find(base)) != string::npos)
+    {
+        computed += " \033[91m";
+        wd.replace(index, base.size(), "HOME");
+        wd.insert(index+4, "\033[92m");
+    }
+
+    else
+        computed += " \033[92m\033[92m";
+
+
+    computed += wd + " : \033[0m";
+    return computed;
+}
+
+int Shell::getLineInterfaceSize() const
+{
+    return getComputedLineInterface().size() - sizeof("\033[94m") - sizeof(" \033[92m\033[92m") - sizeof(" : \033[0m");
+}
+
 vector<string> Shell::getPath() const
 {
     return path;
@@ -54,9 +82,13 @@ void Shell::rawMode(bool enable)
     {
         tcgetattr(0, &old); /* grab old terminal i/o settings */
         new1 = old; /* make new settings same as old settings */
-        new1.c_lflag &= ~ICANON; /* disable buffered i/o */
-        new1.c_lflag &= ~ECHO; /* disable echo mode */
-        //new1.c_cc[VINTR] = 3; // Catch CTRL + C
+
+        //Change flags to get rawmode
+        new1.c_iflag |= IGNBRK;
+        new1.c_lflag &= ~(ICANON | ECHO | ECHOK | ECHOE | ECHONL | ISIG | IEXTEN);
+        new1.c_cc[VMIN] = 1;
+        new1.c_cc[VTIME] = 0;
+
         tcsetattr(0, TCSANOW, &new1); /* use these new terminal i/o settings now */
     }
 
@@ -67,12 +99,12 @@ void Shell::rawMode(bool enable)
 void Shell::run()
 {
     string line;
+    chdir((string("/home/") + getenv("USER")).c_str());
 
     while(true)
     {
         workingDirectory = string(get_current_dir_name());
-        string str = string("\033[94m") + getenv("USER") +  "@" + hostname + " \033[92m" + workingDirectory + " : \033[0m";
-        print(str);
+        print(getComputedLineInterface());
 
         line = user.processInput();
 

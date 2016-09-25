@@ -68,4 +68,18 @@ string Utils::clearEscapedString(string str)
     return result;
 }
 
+string Utils::escapeString(string str)
+{
+    int len = str.size();
+    for(int i = 1; i < len; i++)
+    {
+        if(str[i] == ' ' && str[i-1] != '\\')
+        {
+            str.insert(i, 1, '\\');
+            i++;
+            len++;
+        }
+    }
 
+    return str;
+}
