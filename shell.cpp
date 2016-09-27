@@ -68,7 +68,7 @@ string Shell::getComputedLineInterface() const
 
 int Shell::getLineInterfaceSize() const
 {
-    return getComputedLineInterface().size() - sizeof("\033[94m") - sizeof(" \033[92m\033[92m") - sizeof(" : \033[0m");
+    return getComputedLineInterface().size() - sizeof("\033[94m") - sizeof(" \033[92m\033[92m") - sizeof(" : \033[0m") + 7; //pourquoi + 7 ? bonne question ! Aucune idée pour le moment... Décalage étrange
 }
 
 vector<string> Shell::getPath() const
@@ -113,7 +113,10 @@ void Shell::run()
             commandLine.update(line);
             std::map<std::string, func_ptr>::iterator it = command.getAvailableCommands().find(commandLine.getCommand());
 
-            if(it != command.getAvailableCommands().end())
+            if(line.find('|') != string::npos)
+                command.pipeProcesses(line);
+
+            else if(it != command.getAvailableCommands().end())
             {
                 if(line != commandLine.getCommandsHistory().back())
                     commandLine.getCommandsHistory().push_back(line);
@@ -163,4 +166,11 @@ void Shell::run()
             }
         }
     }
+}
+
+struct winsize Shell::getTerminalSize()
+{
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &window_size); //On actualise la taille du terminal (au cas où celle-ci changerait)
+    return window_size;
+
 }

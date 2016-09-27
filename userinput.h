@@ -20,7 +20,6 @@ public:
     void resetArrows(); //Réinisialise l'état des flèches
 
 private:
-    struct winsize window_size; //contient la largeur et hauteur du terminal
     Shell &shell;
     CommandLine &commandLine;
     bool arrow_up, arrow_down; //Etat précédent des flèches, ces variables sont utilisées pour l'historique des commandes

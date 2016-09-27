@@ -25,7 +25,6 @@ string UserInput::processInput()
     char c = '\0';
     while(c != '\n')
     {
-        ioctl(STDOUT_FILENO, TIOCGWINSZ, &window_size); //On actualise la taille du terminal (au cas où celle-ci changerait)
         read(STDIN_FILENO, &c, 1);
         /*
         string test = "code: ";
@@ -130,13 +129,13 @@ string UserInput::processInput()
                 {
                     if(shiftIndex < 0)
                     {
-                        string sub = line.substr(line.size()+shiftIndex, -shiftIndex);
                         shiftIndex++;
 
-                        for(int i = 0; i < -shiftIndex; i++)
-                            sub += "\b";
+                        if(line.size()+shiftIndex+shell.getLineInterfaceSize() == shell.getTerminalSize().ws_col)
+                            write(STDOUT_FILENO, "\033[1B\033[1000D", sizeof("\033[1B\033[1000D"));
 
-                        write(STDOUT_FILENO, sub.c_str(), sub.size());
+                        else
+                            write(STDOUT_FILENO, "\033[1C", sizeof("\033[1C"));
                     }
                     break;
                 }
@@ -146,7 +145,12 @@ string UserInput::processInput()
                     if(shiftIndex > -(int)line.size()) //attention line.size() est unsigned !!!
                     {
                         shiftIndex--;
-                        write(STDOUT_FILENO, "\b", 1);
+
+                        if(line.size()+shiftIndex+shell.getLineInterfaceSize()+1 == shell.getTerminalSize().ws_col)
+                            write(STDOUT_FILENO, "\033[1A\033[1000C", sizeof("\033[1A\033[1000C"));
+
+                        else
+                            write(STDOUT_FILENO, "\b", 1);
                     }
 
                     break;
@@ -383,15 +387,10 @@ string UserInput::processInput()
 
         else if(c == 127) //EFFACER
         {
-            int weird_shift = 7; //pourquoi? Je ne sais pas encore...
-
-            if(line.size()+shiftIndex+shell.getLineInterfaceSize()+weird_shift == window_size.ws_col)
-                write(STDOUT_FILENO, "\033[1A\033[1000C ", sizeof("\033[1A\033[1000C ")); //CURSOR UP & CURSOR TO THE END
-
             if(line.size() > 0 && shiftIndex == 0)
             {
-                if(line.size()+shiftIndex+shell.getLineInterfaceSize()+weird_shift == window_size.ws_col)
-                    write(STDOUT_FILENO, " \b\033[1A\033[1000C", sizeof(" \b\033[1A\033[1000C"));
+                if(line.size()+shiftIndex+shell.getLineInterfaceSize() == shell.getTerminalSize().ws_col)
+                    write(STDOUT_FILENO, "\033[1A\033[1000C  \b\033[1A\033[1000C", sizeof("\033[1A\033[1000C  \b\033[1A\033[1000C"));
                 else
                     write(STDOUT_FILENO, "\b \b", 3);
                 line.erase(line.end()-1);
@@ -400,18 +399,24 @@ string UserInput::processInput()
             else if(line.size() > 0 && -shiftIndex < line.size())
             {
                 string sub = line.substr(line.size()+shiftIndex, -shiftIndex);
-                line.erase(line.end()-1+shiftIndex);
 
-                write(STDOUT_FILENO, "\b", 1);
+                if(line.size()+shiftIndex+shell.getLineInterfaceSize() != shell.getTerminalSize().ws_col)
+                    write(STDOUT_FILENO, "\b", 1);
+                else
+                    write(STDOUT_FILENO, "\033[1A\033[1000C", sizeof("\033[1A\033[1000C"));
 
 
                 for(int i = 0; i < -shiftIndex+1; i++)
                     sub += " "; //efface les caractères en trop dans la console
 
                 for(int i = 0; i < -shiftIndex*2+1; i++)
-                    sub += "\b";
+                    if(line.size()-shiftIndex-i+shell.getLineInterfaceSize() == shell.getTerminalSize().ws_col)
+                        sub += "\033[1A\033[1000C";
+                    else
+                        sub += "\b";
 
 
+                line.erase(line.end()-1+shiftIndex);
                 shell.print(sub);
             }
         }
@@ -422,11 +427,21 @@ string UserInput::processInput()
             {
                 string sub = line.substr(line.size()+shiftIndex+1, -shiftIndex-1);
                 line.erase(line.size()+shiftIndex, 1);
+                sub += " "; //efface le caractère en trop dans la console
 
-                for(int i = 0; i < -shiftIndex; i++)
-                    sub += " "; //efface les caractères en trop dans la console
+                bool test = false;
 
-                for(int i = 0; i < -shiftIndex*2-1; i++)
+                for(int i = 0; i < -shiftIndex-1; i++)
+                    if(shell.getLineInterfaceSize()+line.size()-i == shell.getTerminalSize().ws_col)
+                    {
+                        sub += "\033[1A\033[1000C";
+                        test = true;
+                    }
+                    else
+                        sub += "\b";
+
+
+                if(!test && shell.getLineInterfaceSize()+line.size()+1 != shell.getTerminalSize().ws_col)
                     sub += "\b";
 
                 shell.print(sub);
@@ -437,6 +452,7 @@ string UserInput::processInput()
 
         else if(c == 3) // CTRL + C
         {
+            shiftIndex = 0;
             handleCtrlC();
         }
 
@@ -448,7 +464,10 @@ string UserInput::processInput()
                 string sub = line.substr(line.size()+shiftIndex-1, -shiftIndex+1);
 
                 for(int i = 0; i < -shiftIndex; i++)
-                    sub += "\b";
+                    if(shell.getLineInterfaceSize()+line.size()-i == shell.getTerminalSize().ws_col)
+                        sub += "\033[1A\033[1000C";
+                    else
+                        sub += "\b";
 
                 shell.print(sub);
             }

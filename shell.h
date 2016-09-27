@@ -26,9 +26,11 @@ public:
     std::vector<std::string> getPath() const;
     std::string getComputedLineInterface() const;
     int getLineInterfaceSize() const;
+    struct winsize getTerminalSize();
 
 private:
     struct termios old, new1;
+    struct winsize window_size; //contient la largeur et hauteur du terminal
     Command command; //Contient toutes les commandes de base ainsi que leurs actions
     CommandLine commandLine;
     UserInput user;

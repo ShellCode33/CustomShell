@@ -134,6 +134,60 @@ void Command::exec(string filename, vector<string> args)
     shell.rawMode(true);
 }
 
+void Command::pipeProcesses(string line)
+{
+    vector<string> progs;
+    string current = "";
+
+    pid_t pid;
+    int prog_pipe[2];
+
+    int i = 0;
+    while(i <  line.size())
+    {
+        current = "";
+
+        while(i < line.size() && line[i] != '|')
+            current += line[i++];
+
+        while(current[0] == ' ') //delete spaces
+            current.erase(0, 1);
+
+        while(current[current.size()-1] == ' ') //delete spaces
+            current.erase(current.size()-1, 1);
+
+        progs.push_back(current);
+        i++; //skip |
+    }
+
+    if(pipe(prog_pipe))
+    {
+        cout << "pipe error !!!!" << endl;
+        return;
+    }
+
+    pid = fork();
+
+    if(pid == 0) //child process
+    {
+        close(prog_pipe[1]);
+        //read pipe[0]
+    }
+
+    else if(pid < 0)
+    {
+        cout << "Fork error !!!!" << endl;
+        return;
+    }
+
+    else //parent process
+    {
+        close(prog_pipe[0]);
+        //write pipe[1]
+    }
+
+}
+
 map<string, func_ptr>& Command::getAvailableCommands()
 {
     return commands;

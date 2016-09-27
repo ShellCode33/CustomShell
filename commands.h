@@ -32,6 +32,7 @@ public:
     std::vector<std::string> getDirFiles(std::string path);
     std::string clearEscapedString(std::string str);
     std::map<std::string, func_ptr> &getAvailableCommands();
+    void pipeProcesses(std::string line);
 
 
 private:
