@@ -124,14 +124,45 @@ void Command::clear(vector<string> args)
 
 void Command::exec(string filename, vector<string> args)
 {
-    string cmd = Utils::escapeString(filename);
+    bool backgroundProcess = false;
 
-    for(string s: args)
-        cmd += " " + Utils::escapeString(s);
+    if(args.size() > 0 && args[args.size()-1] == "&")
+    {
+        args.erase(args.end()-1);
+        backgroundProcess = true;
+    }
+
+    char **params = new char* [args.size()+2];
+
+    params[0] = const_cast<char*>(filename.c_str());
+
+    for(int i = 0; i < (int)args.size(); i++)
+        params[i+1] = const_cast<char*>(args[i].c_str());
+
+    params[args.size()+1] = NULL;
 
     shell.rawMode(false);
-    system(cmd.c_str());
+    pid_t pid = fork();
+
+    if(pid == 0)
+    {
+        execv(filename.c_str(), params);
+        exit(1); //Ne devrait jamais être appelé en théorie
+    }
+
+    if(!backgroundProcess)
+    {
+        int ret = 0;
+
+        waitpid(pid, &ret, 0);
+        ret = WEXITSTATUS(ret);
+
+        if(ret != 0)
+            printf("The program returned an error, code : %i\n", ret);
+    }
+
     shell.rawMode(true);
+    delete [] params;
 }
 
 void Command::pipeProcesses(string line)

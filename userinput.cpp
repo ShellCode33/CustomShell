@@ -144,13 +144,21 @@ string UserInput::processInput()
 
                     if(shiftIndex > -(int)line.size()) //attention line.size() est unsigned !!!
                     {
-                        shiftIndex--;
-
-                        if(line.size()+shiftIndex+shell.getLineInterfaceSize()+1 == shell.getTerminalSize().ws_col)
+                        // shiftIndex < 0 : fix bug du curseur invisble dans la droite du terminal
+                        //ENLEVER SHIFTINDEX ??
+                        if(shiftIndex < 0 && line.size()+shiftIndex+shell.getLineInterfaceSize() == shell.getTerminalSize().ws_col)
                             write(STDOUT_FILENO, "\033[1A\033[1000C", sizeof("\033[1A\033[1000C"));
 
                         else
-                            write(STDOUT_FILENO, "\b", 1);
+                            write(STDOUT_FILENO, "\033[1D", sizeof("\033[1D"));
+
+
+                        //fix bug du curseur invisible sur le coté du terminal
+                        if(line.size()+shiftIndex+shell.getLineInterfaceSize() == shell.getTerminalSize().ws_col)
+                            write(STDOUT_FILENO, "\033[1C", sizeof("\033[1C"));
+
+
+                        shiftIndex--;
                     }
 
                     break;
@@ -429,19 +437,19 @@ string UserInput::processInput()
                 line.erase(line.size()+shiftIndex, 1);
                 sub += " "; //efface le caractère en trop dans la console
 
-                bool test = false;
+                bool wentPreviousLine = false;
 
                 for(int i = 0; i < -shiftIndex-1; i++)
                     if(shell.getLineInterfaceSize()+line.size()-i == shell.getTerminalSize().ws_col)
                     {
                         sub += "\033[1A\033[1000C";
-                        test = true;
+                        wentPreviousLine = true;
                     }
                     else
                         sub += "\b";
 
 
-                if(!test && shell.getLineInterfaceSize()+line.size()+1 != shell.getTerminalSize().ws_col)
+                if(!wentPreviousLine && shell.getLineInterfaceSize()+line.size()+1 != shell.getTerminalSize().ws_col)
                     sub += "\b";
 
                 shell.print(sub);
@@ -461,10 +469,10 @@ string UserInput::processInput()
             if(shiftIndex < 0)
             {
                 line.insert(line.size()+shiftIndex, 1, c);
-                string sub = line.substr(line.size()+shiftIndex-1, -shiftIndex+1);
+                string sub = line.substr(line.size()+shiftIndex-1);
 
                 for(int i = 0; i < -shiftIndex; i++)
-                    if(shell.getLineInterfaceSize()+line.size()-i == shell.getTerminalSize().ws_col)
+                    if(shell.getLineInterfaceSize()+line.size()-shiftIndex-i > shell.getTerminalSize().ws_col && shell.getLineInterfaceSize()+line.size()-i == shell.getTerminalSize().ws_col)
                         sub += "\033[1A\033[1000C";
                     else
                         sub += "\b";

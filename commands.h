@@ -10,6 +10,7 @@
 
 #include <signal.h>
 #include <termios.h>
+#include <sys/wait.h>
 
 class Shell;
 

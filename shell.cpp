@@ -170,7 +170,7 @@ void Shell::run()
 
 struct winsize Shell::getTerminalSize()
 {
-    ioctl(STDOUT_FILENO, TIOCGWINSZ, &window_size); //On actualise la taille du terminal (au cas où celle-ci changerait)
+    ioctl(STDOUT_FILENO, TIOCGWINSZ, &window_size); //On actualise la taille du terminal (au cas où celle-ci changerait), ca peut sembler overkill de mettre à jour à chaque fois qu'on récupère la taille, mais c'est préférable pour éviter une race condition
     return window_size;
 
 }
