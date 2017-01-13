@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <cstring>
+#include <iostream>
 
 class Utils
 {
@@ -17,6 +18,8 @@ public:
     static std::vector<std::string> getDirFiles(std::string path);
     static std::string clearEscapedString(std::string str);
     static std::string escapeString(std::string str);
+    static bool fileExists(const char *path);
+    static std::vector<std::string> parse(std::string line);
 };
 
 #endif // UTILS_H

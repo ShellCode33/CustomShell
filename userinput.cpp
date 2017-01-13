@@ -3,14 +3,14 @@
 
 using namespace std;
 
-UserInput::UserInput(Shell &shell, CommandLine &commandLine) : shell(shell), commandLine(commandLine), arrow_up(false), arrow_down(false), key_code_history({0, 0})
+UserInput::UserInput(Shell &shell, CommandLine &commandLine) : shell(shell), commandLine(commandLine), arrow_up(false), arrow_down(false), key_code_history{0, 0}
 {
     //RETOUR A LA LIGNE LORS DEFFACEMENT
 }
 
 void UserInput::handleCtrlC()
 {
-    string str = string("^C\n") + shell.getComputedLineInterface();
+    string str = string("^C\033[1B\033[1000D") + shell.getComputedLineInterface();
     shell.print(str);
     key_code_history[0] = key_code_history[1] = 0;
     line = "";
@@ -131,7 +131,7 @@ string UserInput::processInput()
                     {
                         shiftIndex++;
 
-                        if(line.size()+shiftIndex+shell.getLineInterfaceSize() == shell.getTerminalSize().ws_col)
+                        if((line.size()+shiftIndex+shell.getLineInterfaceSize())%shell.getTerminalSize().ws_col == 0)
                             write(STDOUT_FILENO, "\033[1B\033[1000D", sizeof("\033[1B\033[1000D"));
 
                         else
@@ -144,18 +144,11 @@ string UserInput::processInput()
 
                     if(shiftIndex > -(int)line.size()) //attention line.size() est unsigned !!!
                     {
-                        // shiftIndex < 0 : fix bug du curseur invisble dans la droite du terminal
-                        //ENLEVER SHIFTINDEX ??
-                        if(shiftIndex < 0 && line.size()+shiftIndex+shell.getLineInterfaceSize() == shell.getTerminalSize().ws_col)
+                        if((line.size()+shiftIndex+shell.getLineInterfaceSize())%shell.getTerminalSize().ws_col == 0)
                             write(STDOUT_FILENO, "\033[1A\033[1000C", sizeof("\033[1A\033[1000C"));
 
                         else
                             write(STDOUT_FILENO, "\033[1D", sizeof("\033[1D"));
-
-
-                        //fix bug du curseur invisible sur le coté du terminal
-                        if(line.size()+shiftIndex+shell.getLineInterfaceSize() == shell.getTerminalSize().ws_col)
-                            write(STDOUT_FILENO, "\033[1C", sizeof("\033[1C"));
 
 
                         shiftIndex--;
@@ -184,13 +177,17 @@ string UserInput::processInput()
 
             if(command_size == 1) //aucun programme à 1 caractère
                 command_size = 0;
-            else
+
+            else if(command_size > 0)
                 command_size++; //skip ' '
 
-            if(command_size == 1) //fix bug
-                command_size--;
+            if(line.size() == 0) //Si on fait tabulation et qu'il n'y a rien à traiter, on fait un ls
+            {
+                write(STDOUT_FILENO, "\n", 1);
+                return "/bin/ls";
+            }
 
-            if(line.find('/') != string::npos) //S'il y a un / dans line c'est qu'il s'agit d'un chemin d'accès
+            else if(line.find('/') != string::npos) //S'il y a un / dans line c'est qu'il s'agit d'un chemin d'accès
             {
                 string path = "";
                 string autocomplete_word = "";
@@ -311,21 +308,40 @@ string UserInput::processInput()
 
                 for(string file : files)
                 {
-                    if(file.find(line.substr(command_size)) == 0)
+                    if(line.size() != 0 && file.find(line.substr(command_size)) == 0)
                         possible_dirs.push_back(file);
+
+                    else if(line.size() == 0 && file[0] != '.')
+                        possible_dirs.push_back(file);
+
+
                 }
 
                 if(possible_dirs.size() == 1)
                 {
-                    int len = possible_dirs.at(0).size();
-                    string sub = possible_dirs.at(0).substr(line.size()-command_size, len);
+                    if(line.size() > 0)
+                    {
+                        int len = possible_dirs.at(0).size();
+                        string sub = possible_dirs.at(0).substr(line.size()-command_size, len);
 
-                    if(Utils::isDir(Utils::clearEscapedString((line.substr(command_size) + sub)).c_str()))
-                        sub += "/";
+                        if(Utils::isDir(Utils::clearEscapedString((line.substr(command_size) + sub)).c_str()))
+                            sub += "/";
 
-                    sub = Utils::escapeString(sub);
-                    line += sub;
-                    shell.print(sub);
+                        sub = Utils::escapeString(sub);
+                        line += sub;
+                        shell.print(sub);
+                    }
+
+                    else
+                    {
+                        string file = possible_dirs.at(0);
+
+                        if(Utils::isDir(Utils::clearEscapedString(file.c_str())))
+                            file += "/";
+
+                        line += file;
+                        shell.print(file);
+                    }
                 }
 
                 else if((int)line.size() == command_size || (possible_dirs.size() > 0 && possible_dirs.size() < 50))
@@ -345,7 +361,7 @@ string UserInput::processInput()
                         }
                     }
 
-                    if(line != "")
+                    if(line.size() != 0 && complete_with.size() > 0)
                         line += complete_with.substr(line.size()-command_size);
 
                     string str = string("\n") + shell.getComputedLineInterface();
@@ -354,7 +370,8 @@ string UserInput::processInput()
                 }
 
                 //Si aucun dossier n'a été trouvé, alors on recherche les programmes du path
-                if(possible_dirs.size() == 0)
+                //De plus il ne doit pas y avoir d'espace dans la ligne car sinon cela signifie que ce n'est pas une simple commande et qu'il y a des arguments
+                if(line.find(' ') == string::npos && possible_dirs.size() == 0)
                 {
                     vector<string> possible_commands;
 
@@ -397,18 +414,38 @@ string UserInput::processInput()
         {
             if(line.size() > 0 && shiftIndex == 0)
             {
-                if(line.size()+shiftIndex+shell.getLineInterfaceSize() == shell.getTerminalSize().ws_col)
-                    write(STDOUT_FILENO, "\033[1A\033[1000C  \b\033[1A\033[1000C", sizeof("\033[1A\033[1000C  \b\033[1A\033[1000C"));
+                string str = "";
+
+                if(shell.getLineInterfaceSize()+line.size() >= shell.getTerminalSize().ws_col && (line.size()+shell.getLineInterfaceSize())%(shell.getTerminalSize().ws_col) == 0)
+                    str += "\033[1A\033[1000C  \033[1A\033[1000C"; //remove \b
+
                 else
-                    write(STDOUT_FILENO, "\b \b", 3);
+                {
+                    str += "\b";
+
+                    if(shell.getLineInterfaceSize()+line.size() == shell.getTerminalSize().ws_col)
+                        str += "\033[1C";
+
+                    str += " ";
+
+                    str += "\b";
+
+                    if(shell.getLineInterfaceSize()+line.size() == shell.getTerminalSize().ws_col)
+                        str += "\033[1C";
+
+                }
+
+
+
+                shell.print(str);
                 line.erase(line.end()-1);
             }
 
-            else if(line.size() > 0 && -shiftIndex < line.size())
+            else if((int)line.size() > 0 && -shiftIndex < (int)line.size())
             {
                 string sub = line.substr(line.size()+shiftIndex, -shiftIndex);
 
-                if(line.size()+shiftIndex+shell.getLineInterfaceSize() != shell.getTerminalSize().ws_col)
+                if((line.size()+shiftIndex+shell.getLineInterfaceSize())%shell.getTerminalSize().ws_col != 0)
                     write(STDOUT_FILENO, "\b", 1);
                 else
                     write(STDOUT_FILENO, "\033[1A\033[1000C", sizeof("\033[1A\033[1000C"));
@@ -418,7 +455,7 @@ string UserInput::processInput()
                     sub += " "; //efface les caractères en trop dans la console
 
                 for(int i = 0; i < -shiftIndex*2+1; i++)
-                    if(line.size()-shiftIndex-i+shell.getLineInterfaceSize() == shell.getTerminalSize().ws_col)
+                    if((line.size()-shiftIndex-i+shell.getLineInterfaceSize())%shell.getTerminalSize().ws_col == 0)
                         sub += "\033[1A\033[1000C";
                     else
                         sub += "\b";
@@ -434,26 +471,22 @@ string UserInput::processInput()
             if(shiftIndex < 0)
             {
                 string sub = line.substr(line.size()+shiftIndex+1, -shiftIndex-1);
-                line.erase(line.size()+shiftIndex, 1);
                 sub += " "; //efface le caractère en trop dans la console
 
-                bool wentPreviousLine = false;
-
-                for(int i = 0; i < -shiftIndex-1; i++)
-                    if(shell.getLineInterfaceSize()+line.size()-i == shell.getTerminalSize().ws_col)
+                for(int i = 0; i < -shiftIndex; i++)
+                    if((shell.getLineInterfaceSize()+line.size()-i)%shell.getTerminalSize().ws_col == 0)
                     {
-                        sub += "\033[1A\033[1000C";
-                        wentPreviousLine = true;
+                        if((shell.getLineInterfaceSize()+line.size())%shell.getTerminalSize().ws_col != 0)
+                            sub += "\033[1A\033[1000C";
+
+                        else
+                            sub += "\b\033[1C";
                     }
                     else
                         sub += "\b";
 
-
-                if(!wentPreviousLine && shell.getLineInterfaceSize()+line.size()+1 != shell.getTerminalSize().ws_col)
-                    sub += "\b";
-
                 shell.print(sub);
-
+                line.erase(line.size()+shiftIndex, 1);
                 shiftIndex++;
             }
         }
@@ -472,10 +505,14 @@ string UserInput::processInput()
                 string sub = line.substr(line.size()+shiftIndex-1);
 
                 for(int i = 0; i < -shiftIndex; i++)
-                    if(shell.getLineInterfaceSize()+line.size()-shiftIndex-i > shell.getTerminalSize().ws_col && shell.getLineInterfaceSize()+line.size()-i == shell.getTerminalSize().ws_col)
+                    if(shell.getLineInterfaceSize()+line.size() > shell.getTerminalSize().ws_col && (shell.getLineInterfaceSize()+line.size()-i)%shell.getTerminalSize().ws_col == 0)
                         sub += "\033[1A\033[1000C";
+
                     else
                         sub += "\b";
+
+                if(shell.getLineInterfaceSize()+line.size() == shell.getTerminalSize().ws_col)
+                    sub += "\033[1C";
 
                 shell.print(sub);
             }
@@ -485,6 +522,10 @@ string UserInput::processInput()
                 line += c;
                 write(STDOUT_FILENO, &c, 1);
             }
+
+            //fix bug invisible cursor on the right
+            if(shell.getLineInterfaceSize()+line.size()+shiftIndex == shell.getTerminalSize().ws_col)
+                write(STDOUT_FILENO, " \033[1D", sizeof(" \033[1D"));
 
             key_code_history[0] = key_code_history[1] = 0;
         }

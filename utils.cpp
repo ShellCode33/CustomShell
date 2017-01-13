@@ -7,6 +7,12 @@ Utils::Utils()
 
 }
 
+bool Utils::fileExists(const char* path)
+{
+    struct stat buffer;
+    return (stat (path, &buffer) == 0);
+}
+
 bool Utils::isDir(const char* path)
 {
     struct stat buf;
@@ -47,7 +53,7 @@ vector<string> Utils::getDirFiles(string path)
 
         closedir (dir);
     }
-/*
+    /*
     else
         cout << "Impossible de lister le contenu du repertoire." << endl;
 */
@@ -82,4 +88,61 @@ string Utils::escapeString(string str)
     }
 
     return str;
+}
+
+vector<string> Utils::parse(string line)
+{
+    vector<string> words;
+
+    int i = 0;
+    while(line[i] == ' ') //skip spaces
+        i++;
+
+    int begin_index = i;
+
+    bool stringBegin = false; // " not found
+
+    for(; i < (int)line.size(); i++)
+    {
+        char test = line[i];
+        if(line[i] == '"') //match "
+        {
+            cout << stringBegin << endl;
+            stringBegin = !stringBegin;
+        }
+
+        if(line[i] == ' ' && line[i-1] != '\\' && !stringBegin)
+        {
+            string word = line.substr(begin_index, i-begin_index);
+
+            if(word[word.size()-1] == '"')
+                word.erase(word.begin() + word.size() -1);
+
+            if(word[0] == '"')
+                word.erase(word.begin());
+
+            words.push_back(word);
+
+            while(line[i] == ' ') //skip spaces
+                i++;
+
+            begin_index = i--; //because the for loop will i++ so i--
+        }
+    }
+
+    if(begin_index < (int)line.size())
+    {
+        string word = line.substr(begin_index);
+
+        if(word[word.size()-1] == '"')
+            word.erase(word.begin() + word.size() -1);
+
+        if(word[0] == '"')
+            word.erase(word.begin());
+
+        words.push_back(word);
+    }
+
+
+    return words;
 }

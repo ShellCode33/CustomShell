@@ -8,36 +8,6 @@ CommandLine::CommandLine(string line)
     update(line);
 }
 
-vector<string> CommandLine::split(string line) const
-{
-    vector<string> words;
-
-    int i = 0;
-    while(line[i] == ' ') //skip spaces
-        i++;
-
-    int begin_index = i;
-
-
-    for(; i < (int)line.size(); i++)
-    {
-        if(line[i] == ' ' && line[i-1] != '\\')
-        {
-            words.push_back(line.substr(begin_index, i-begin_index));
-            begin_index = i+1;
-
-            while(line[i] == ' ') //skip spaces
-                i++;
-        }
-    }
-
-    if(begin_index < (int)line.size())
-        words.push_back(line.substr(begin_index));
-
-
-    return words;
-}
-
 void CommandLine::update(string line)
 {
     args.clear();
@@ -45,7 +15,7 @@ void CommandLine::update(string line)
     if(line == "")
         return;
 
-    vector<string> splitCommand = split(line);
+    vector<string> splitCommand = Utils::parse(line);
     command = splitCommand.at(0);
     customArgs();
 
@@ -80,6 +50,6 @@ std::vector<std::string> CommandLine::getArgs() const
 
 void CommandLine::customArgs()
 {
-    if(command == "ls")
+    if(command == "ls" || command == "/bin/ls")
         args.push_back("--color=auto");
 }

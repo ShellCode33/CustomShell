@@ -12,7 +12,6 @@ class CommandLine
 {
 public:
     CommandLine(std::string line);
-    std::vector<std::string> split(std::string line) const;
     void update(std::string line);
 
     std::string getCommand() const;

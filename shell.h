@@ -18,7 +18,7 @@ public:
     void run();
     void rawMode(bool enable);
     void print(std::string str) const;
-    void print(char *str) const;
+    void print(const char *str) const;
     void print(char c) const;
     void print(int i) const;
     std::string getWorkingDirectory() const;
@@ -27,6 +27,10 @@ public:
     std::string getComputedLineInterface() const;
     int getLineInterfaceSize() const;
     struct winsize getTerminalSize();
+    void addJob(pid_t pid);
+    void removeJob(pid_t pid);
+    Command &getCommand();
+    bool execCommand(std::string cmd, const std::vector<std::string> &args);
 
 private:
     struct termios old, new1;
@@ -46,6 +50,8 @@ private:
 
     std::string workingDirectory;
     std::string hostname;
+
+    std::list<pid_t> bg_jobs;
 
 };
 
