@@ -132,10 +132,10 @@ string UserInput::processInput()
                         shiftIndex++;
 
                         if((line.size()+shiftIndex+shell.getLineInterfaceSize())%shell.getTerminalSize().ws_col == 0)
-                            write(STDOUT_FILENO, "\033[1B\033[1000D", sizeof("\033[1B\033[1000D"));
+                            shell.print("\033[1B\033[1000D");
 
                         else
-                            write(STDOUT_FILENO, "\033[1C", sizeof("\033[1C"));
+                            shell.print("\033[1C");
                     }
                     break;
                 }
@@ -145,10 +145,10 @@ string UserInput::processInput()
                     if(shiftIndex > -(int)line.size()) //attention line.size() est unsigned !!!
                     {
                         if((line.size()+shiftIndex+shell.getLineInterfaceSize())%shell.getTerminalSize().ws_col == 0)
-                            write(STDOUT_FILENO, "\033[1A\033[1000C", sizeof("\033[1A\033[1000C"));
+                            shell.print("\033[1A\033[1000C");
 
                         else
-                            write(STDOUT_FILENO, "\033[1D", sizeof("\033[1D"));
+                            shell.print("\033[1D");
 
 
                         shiftIndex--;
@@ -183,7 +183,7 @@ string UserInput::processInput()
 
             if(line.size() == 0) //Si on fait tabulation et qu'il n'y a rien à traiter, on fait un ls
             {
-                write(STDOUT_FILENO, "\n", 1);
+                shell.print('\n');
                 return "/bin/ls";
             }
 
@@ -294,7 +294,7 @@ string UserInput::processInput()
                     line += complete_with;
                 }
 
-                if(line[line.size()-1] != '/' && Utils::isDir(Utils::clearEscapedString(line.substr(command_size)).c_str()))
+                if(line[line.size()-1] != '/' && Utils::isDir(Utils::clearEscapedString(line.substr(command_size))))
                 {
                     line += "/";
                     shell.print("/");
@@ -324,7 +324,10 @@ string UserInput::processInput()
                         int len = possible_dirs.at(0).size();
                         string sub = possible_dirs.at(0).substr(line.size()-command_size, len);
 
-                        if(Utils::isDir(Utils::clearEscapedString((line.substr(command_size) + sub)).c_str()))
+
+                        string test = Utils::clearEscapedString((line.substr(command_size) + sub));
+
+                        if(Utils::isDir(Utils::clearEscapedString((line.substr(command_size) + sub))))
                             sub += "/";
 
                         sub = Utils::escapeString(sub);
@@ -446,9 +449,9 @@ string UserInput::processInput()
                 string sub = line.substr(line.size()+shiftIndex, -shiftIndex);
 
                 if((line.size()+shiftIndex+shell.getLineInterfaceSize())%shell.getTerminalSize().ws_col != 0)
-                    write(STDOUT_FILENO, "\b", 1);
+                    shell.print('\b');
                 else
-                    write(STDOUT_FILENO, "\033[1A\033[1000C", sizeof("\033[1A\033[1000C"));
+                    shell.print("\033[1A\033[1000C");
 
 
                 for(int i = 0; i < -shiftIndex+1; i++)
@@ -520,19 +523,19 @@ string UserInput::processInput()
             else
             {
                 line += c;
-                write(STDOUT_FILENO, &c, 1);
+                shell.print(c);
             }
 
             //fix bug invisible cursor on the right
             if(shell.getLineInterfaceSize()+line.size()+shiftIndex == shell.getTerminalSize().ws_col)
-                write(STDOUT_FILENO, " \033[1D", sizeof(" \033[1D"));
+                shell.print(" \033[1D");
 
             key_code_history[0] = key_code_history[1] = 0;
         }
 
     }
 
-    write(STDOUT_FILENO, "\n", 1);
+    shell.print('\n');
     return line;
 }
 

@@ -13,16 +13,11 @@ bool Utils::fileExists(const char* path)
     return (stat (path, &buffer) == 0);
 }
 
-bool Utils::isDir(const char* path)
-{
-    struct stat buf;
-    stat(path, &buf);
-    return S_ISDIR(buf.st_mode);
-}
-
 bool Utils::isDir(string path)
 {
-    return isDir(path.c_str());
+    struct stat buf;
+    stat(path.c_str(), &buf);
+    return S_ISDIR(buf.st_mode);
 }
 
 //retourne le début "commun" de 2 strings
@@ -104,22 +99,28 @@ vector<string> Utils::parse(string line)
 
     for(; i < (int)line.size(); i++)
     {
-        char test = line[i];
-        if(line[i] == '"') //match "
+        if(line[i] == '"' && (i == 0 || line[i-1] != '\\'))
         {
-            cout << stringBegin << endl;
             stringBegin = !stringBegin;
         }
 
-        if(line[i] == ' ' && line[i-1] != '\\' && !stringBegin)
+        else if(line[i] == ' ' && (i == 0 || line[i-1] != '\\') && !stringBegin)
         {
             string word = line.substr(begin_index, i-begin_index);
 
-            if(word[word.size()-1] == '"')
-                word.erase(word.begin() + word.size() -1);
+            if(word[word.size()-1] == '"' && word[word.size()-2] != '\\')
+                word.erase(word.begin() + word.size() - 1);
+            else if(word[word.size()-2] == '\\')
+                word.erase(word.begin() + word.size() - 2);
 
-            if(word[0] == '"')
+            if(word[0] == '"' || word[0] == '\\')
                 word.erase(word.begin());
+
+            //erase escapes
+            for(unsigned int j = 0; j < word.size(); j++)
+                if(word[j] == '\\')
+                    word.erase(word.begin()+j);
+
 
             words.push_back(word);
 
@@ -130,15 +131,28 @@ vector<string> Utils::parse(string line)
         }
     }
 
-    if(begin_index < (int)line.size())
+    if(stringBegin) // " opened but not closed
+    {
+        cout << "Syntax error" << endl;
+        words.clear();
+    }
+
+    else if(begin_index < (int)line.size())
     {
         string word = line.substr(begin_index);
 
-        if(word[word.size()-1] == '"')
+        if(word[word.size()-1] == '"' && word[word.size()-2] != '\\')
             word.erase(word.begin() + word.size() -1);
+        else if(word[word.size()-2] == '\\')
+            word.erase(word.begin() + word.size() - 2);
 
-        if(word[0] == '"')
+        if(word[0] == '"' || word[0] == '\\')
             word.erase(word.begin());
+
+        //erase escapes
+        for(unsigned int j = 0; j < word.size(); j++)
+            if(word[j] == '\\')
+                word.erase(word.begin()+j);
 
         words.push_back(word);
     }

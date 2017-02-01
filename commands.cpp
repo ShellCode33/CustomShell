@@ -114,7 +114,7 @@ void Command::delay_t(vector<string> args)
     sleep(atoi(args.at(0).c_str()));
     vector<string> args_cmd;
 
-    for(int i = 2; i < args.size(); i++)
+    for(unsigned int i = 2; i < args.size(); i++)
         args_cmd.push_back(args.at(i));
 
     shell.execCommand(args.at(1), args_cmd);

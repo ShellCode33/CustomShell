@@ -209,7 +209,7 @@ bool Shell::execCommand(const string cmd, const std::vector<string> &args)
     }
 
     else
-        cout << "You're trying to execute a directory" << endl;
+        cout << "You're trying to execute a directory : \"" << cmd << "\"" << endl;
 
     return executed;
 }

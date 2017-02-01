@@ -16,6 +16,10 @@ void CommandLine::update(string line)
         return;
 
     vector<string> splitCommand = Utils::parse(line);
+
+    if(splitCommand.size() == 0)
+        return;
+
     command = splitCommand.at(0);
     customArgs();
 

@@ -7,6 +7,7 @@
 #include <dirent.h>
 #include <cstring>
 #include <iostream>
+#include <unistd.h>
 
 class Utils
 {

@@ -10,6 +10,8 @@ void preventParentAbort(int signal)
 int main(int argc, char **argv)
 {
     signal(SIGINT, &preventParentAbort);
+
+    //On peut envisager plus tard que des sous shells se lance dans le premier le $(command) de bash par exemple
     Shell shell;
     shell.run();
 
