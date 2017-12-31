@@ -1,11 +1,22 @@
-# ShellCustom
-##If you want to run this shell custom on your machine, please do the following commands :
+# Shell Custom Written in C++
+
+## Download
 ```
 git clone https://github.com/ShellCode33/ShellCustom.git && cd ShellCustom
 ```
 
+## Compile
 ```
-chmod +x run.sh && ./run.sh
+g++ -std=c++11 -Wno-unused-variable -Wno-unused-result -Wno-unused-parameter -pthread *.cpp -o shell
 ```
 
-Note : you need to have g++ installed
+## Execute
+```
+chmod +x shell && ./shell
+```
+
+## Features
+- Handling working directory
+- Background processes with &
+- Auto completion
+- Pipe (two processes only :/)
