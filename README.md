@@ -1,4 +1,4 @@
-# Shell Custom Written in C++
+# Custom Shell Written in C++
 
 ## Download
 ```
